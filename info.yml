@@ -1,0 +1,17 @@
+project:
+  PROJECT_NAME: "empsystem" # Required
+  COMPONENT_NAME: "emp_api" # Required
+  VERSION: "v1.24" # Required
+  PROJECT_TYPE: "docker" # Options are 'non-docker' or 'docker'
+  BUILD_TOOL: "yarn" # Options are 'npm', 'yarn', 'gradle' or 'maven' | Not required if BUILD_TOOL is docker
+  SONAR_PROJECT_KEY: "tuppalwad123_employeesystemserver_0a46436f-8b36-4c61-b600-8c4c13f1ed0f" # Optional but recommended
+
+deployment:
+  BUILD_PROMOTION: true
+  MACHINE_PORT: 9999 # Required for deployment purpose. Not required if BUILD_PROMOTION is disabled
+  CONTAINER_PORT: 3030 # Required only if PROJECT_TYPE is docker.
+
+notification: # minimum 1 mail is necessary as pipeline will share the logs over mail
+  users:
+    - "vtuppalwad@gmail.com"
+    

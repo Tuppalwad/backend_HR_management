@@ -24,7 +24,7 @@ const validatePass = async (password,hashedPassword)=>{
 }
 
 const genJWTToken = (email,fullname,role) => {
-    const privateKey = fs.readFileSync('private.key', 'utf8'); // Use readFileSync to read the file synchronously
+    const privateKey = fs.readFileSync('./private.key', 'utf8'); // Use readFileSync to read the file synchronously
     const token = jwt.sign(
         { email,fullname,role }, // Correct the property to email
         privateKey, 
@@ -34,7 +34,7 @@ const genJWTToken = (email,fullname,role) => {
 };
 
 const genJWTTokenEmp = (empId,fullName,worktype,shift) => {
-    const privateKey = fs.readFileSync('private.key', 'utf8'); // Use readFileSync to read the file synchronously
+    const privateKey = fs.readFileSync('./private.key', 'utf8'); // Use readFileSync to read the file synchronously
     const token = jwt.sign(
         { empId,fullName,worktype,shift }, // Correct the property to email
         privateKey, 

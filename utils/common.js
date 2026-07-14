@@ -24,29 +24,29 @@ const validatePass = async (password,hashedPassword)=>{
 }
 
 const genJWTToken = (email,fullname,role) => {
-    const privateKey = process.env.JWT_SECRET_PRIVATE || 'your-secret-key'; // Use environment variable or fallback
+    const privateKey = fs.readFileSync('./private.key', 'utf8'); // Use readFileSync to read the file synchronously
     const token = jwt.sign(
         { email,fullname,role }, // Correct the property to email
         privateKey, 
-        { algorithm: 'HS256', expiresIn: '20d' } // Use HS256 with secret key instead of RS256
+        { algorithm: 'RS256', expiresIn: '20d' } // Correct the property to expiresIn and set it to 20 days
     );
     return token;
 };
 
 const genJWTTokenEmp = (empId,fullName,worktype,shift) => {
-    const privateKey = process.env.JWT_SECRET_PRIVATE || 'your-secret-key'; // Use environment variable or fallback
+    const privateKey = fs.readFileSync('./private.key', 'utf8'); // Use readFileSync to read the file synchronously
     const token = jwt.sign(
         { empId,fullName,worktype,shift }, // Correct the property to email
         privateKey, 
-        { algorithm: 'HS256', expiresIn: '20d' } // Use HS256 with secret key instead of RS256
+        { algorithm: 'RS256', expiresIn: '20d' } // Correct the property to expiresIn and set it to 20 days
     );
     return token;
 };
 
 const verifyJWTToken = (token) => {
-    const publicKey = process.env.JWT_SECRET_PUBLIC || 'your-secret-key'; // Use environment variable or fallback
+    const publicKey = fs.readFileSync('./public.key', 'utf8'); // Read the public key for verification
     try {
-        const decoded = jwt.verify(token, publicKey, { algorithms: ['HS256'] }); // Use HS256 to match signing
+        const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
         return decoded;
     } catch (err) {
         console.log('Token verification failed:', err.message);

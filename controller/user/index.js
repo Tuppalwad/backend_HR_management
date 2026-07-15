@@ -68,7 +68,7 @@ exports.addUser = async (req, res) => {
         // Send email to the user
         const { subject, html } = await empHTMLText(`${firstName} ${lastName}`, empId, mobile)
 
-        await sendEmail([email], subject, html)
+        // await sendEmail([email], subject, html)
 
         return sendSuccessResponse(res, 201, 'User added successfully', { empId });
 

@@ -18,7 +18,7 @@ const userInfoSchema = new Schema({
     Email: { type: String, required: false, match: /.+\@.+\..+/ }, // Official email is optional
     Designation: { type: String, required: true, trim: true },
     Gender: { type: String, required: true, enum: ['Male', 'Female', 'Other'] },
-    WorkMode: { type: String, required: true, enum: ['Remote', 'On-site', 'Hybrid'] },
+    WorkMode: { type: String, required: true, enum: ['Remote', 'On-site', 'Hybrid','WFH','Work From Home','WFO'] },
     EmploymentType: { type: String, required: true, enum: ['Permanent', 'Contractual'] },
     
     // Section 2: Employee Basic Details Part 2

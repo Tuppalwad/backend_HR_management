@@ -7,9 +7,10 @@ const skillandExp = new Schema({
 
 const userInfoSchema = new Schema({
     empId: { type: String, required: true, unique: true },
-    
+
     // Section 1: Employee Basic Details
     // EmployeeID: { type: String, required: true, trim: true },
+    CurrentEmpId: { type: String, required: true, unique: true },
     FirstName: { type: String, required: true, trim: true },
     LastName: { type: String, required: true, trim: true },
     DateOfJoining: { type: Date, required: true },

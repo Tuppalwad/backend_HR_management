@@ -10,7 +10,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
         
         const {
             // Section 1: Employee Basic Details
-           
+            CurrentEmpId,
             FirstName,
             LastName,
             DateOfJoining,
@@ -64,6 +64,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
         const requiredFields = [
             'empId',
             // Section 1 required fields
+            'CurrentEmpId',
             'FirstName',
             'LastName',
             'DateOfJoining',
@@ -145,6 +146,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
                 {
                     // Section 1
                     // EmployeeID,
+                    CurrentEmpId,
                     FirstName,
                     LastName,
                     DateOfJoining,
@@ -198,6 +200,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
                 // Section 1
                 // EmployeeID,
                 empId,
+                CurrentEmpId,
                 FirstName,
                 LastName,
                 DateOfJoining,

@@ -12,9 +12,9 @@ const generateEmpId = () => {
 
 
 exports.addUser = async (req, res) => {
-    const { firstName, lastName, email, gender, role, worktype, mobile, shift, status, dateofjoining, employeeType } = req.body;
+    const { firstName, lastName, email, gender, role, worktype, mobile, shift, status, dateofjoining, employeeType, currentEmpId } = req.body;
     try {
-        if (!firstName || !lastName || !email || !gender || !role || !worktype || !mobile || !status) {
+        if (!firstName || !lastName || !email || !gender || !role || !worktype || !mobile || !status || !currentEmpId) {
             return sendErrorResponse(res, 401, "All fields are required");
         }
 
@@ -22,6 +22,7 @@ exports.addUser = async (req, res) => {
         const checkEmailInAdmin = await Admin.findOne({ email });
         const checkMobile = await User.findOne({ mobile });
         const checkMobileInAdmin = await Admin.findOne({ mobile });
+        const checkCurrentEmpId = await User.findOne({ currentEmpId });
 
         console.log(checkEmail, checkEmailInAdmin, checkMobile, checkMobileInAdmin);
 
@@ -38,6 +39,9 @@ exports.addUser = async (req, res) => {
         if (checkMobile) {
             return sendErrorResponse(res, 401, "An account with this mobile number already exists");
         }
+        if (checkCurrentEmpId) {
+            return sendErrorResponse(res, 401, "An account with this Current Employee ID already exists");
+        }
 
         // Generate employee ID and hash the mobile number
         const hashedPassword = await genbcryptPass(mobile);
@@ -50,6 +54,7 @@ exports.addUser = async (req, res) => {
             lastName,
             email,
             empId,
+            currentEmpId,
             gender,
             role,
             worktype,
@@ -79,7 +84,7 @@ exports.addUser = async (req, res) => {
 };
 
 exports.editUser = async (req, res) => {
-    const { empId, firstName, lastName, email, gender, role, mobile, shift, status, dateofjoining, worktype, employeeType } = req.body;
+    const { empId, firstName, lastName, email, gender, role, mobile, shift, status, dateofjoining, worktype, employeeType, currentEmpId } = req.body;
 
     console.log("status", status);
 
@@ -96,6 +101,7 @@ exports.editUser = async (req, res) => {
         user.role = role || user.role;
         user.worktype = worktype || user.worktype;
         user.mobile = mobile || user.mobile;
+        user.currentEmpId = currentEmpId || user.currentEmpId;
         user.password = user.password;
         user.shift = shift || user.shift;
         user.status = status || user?.status?.toLowerCase() == 'active' ? true : false;

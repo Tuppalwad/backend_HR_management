@@ -84,16 +84,24 @@ exports.addUser = async (req, res) => {
 };
 
 exports.editUser = async (req, res) => {
-    const { empId, firstName, lastName, email, gender, role, mobile, shift, status, dateofjoining, worktype, employeeType, currentEmpId } = req.body;
+    const { _id, empId, firstName, lastName, email, gender, role, mobile, shift, status, dateofjoining, worktype, employeeType, currentEmpId } = req.body;
 
     console.log("status", status);
 
     try {
-        const user = await User.findOne({ empId });
+        const user = _id ? await User.findById(_id) : await User.findOne({ empId });
         if (!user) {
             return sendErrorResponse(res, 404, "User not found");
         }
 
+        if (empId && empId !== user.empId) {
+            const checkEmpId = await User.findOne({ empId, _id: { $ne: user._id } });
+            if (checkEmpId) {
+                return sendErrorResponse(res, 401, "An account with this Employee ID already exists");
+            }
+        }
+
+        user.empId = empId || user.empId;
         user.firstName = firstName || user.firstName;
         user.lastName = lastName || user.lastName;
         user.email = email || user.email;

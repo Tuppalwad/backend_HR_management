@@ -185,6 +185,14 @@ exports.closeAccount = async (req, res) => {
             return sendErrorResponse(res, 404, "User not found");
         }
 
+        // If the account is currently active, block closing it until assigned assets are returned
+        if (user.status) {
+            const activeAssets = await Asset.find({ 'currentAssignee.empId': empId, status: 'Assigned' });
+            if (activeAssets.length > 0) {
+                return sendErrorResponse(res, 400, "Employee still has assets assigned, return them before closing the account", activeAssets);
+            }
+        }
+
         // Find the attendance record for the user
         const absentUsers = await userAttendance.findOne({ empId });
 

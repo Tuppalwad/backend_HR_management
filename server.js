@@ -24,6 +24,11 @@ const notificationRoutes = require('./routes/notificationRoutes')
 const timeSheet = require('./routes/timeSheet')
 const sendmails = require('./routes/mailserviceRoute.js')
 const Dashboard = require('./routes/dasboardRoutes.js')
+// Asset Management routes
+const assetRoutes = require('./asset/routes/assetRoutes');
+const assetMaintenanceRoutes = require('./asset/routes/assetMaintenanceRoutes');
+const assetDashboardRoutes = require('./asset/routes/assetDashboardRoutes');
+
 const { sendSuccessResponse } = require('./utils/common');
 const { sendDoAttendance, sendAttendanceReminder } = require('./controller/notification/index.js');
 
@@ -53,6 +58,10 @@ app.use('/api', authenticateToken, ProjectRoutes)
 app.use('/api/service', authenticateToken, sendmails)
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', authenticateToken, Dashboard);
+// Asset Management routes
+app.use('/api/asset', authenticateToken, assetRoutes);
+app.use('/api/asset/maintenance', authenticateToken, assetMaintenanceRoutes);
+app.use('/api/asset/dashboard', authenticateToken, assetDashboardRoutes);
 
 app.get('/api/@me', authenticateToken, (req, res) => {
     return sendSuccessResponse(res, 200, "authorize user")

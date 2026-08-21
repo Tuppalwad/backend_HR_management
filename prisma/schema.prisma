@@ -1,0 +1,674 @@
+// EMPsystem — MongoDB to MySQL relational schema
+// Phase 2 of migration/MIGRATION_LOG.md — see that file for the full decision log.
+//
+// Conventions used throughout this file:
+//
+// 1. BUSINESS KEYS: `User.empId` and `Asset.assetId` are the real primary keys of their
+//    tables (String @id), not synthetic autoincrement IDs — matching the decision to keep
+//    them as the app's actual join keys, exactly as they already are in the Mongoose code.
+//    Everything else (Admin, Client, Project, ...) never had an equivalent business key in
+//    the original app, so those get a normal autoincrement `id Int @id` with the natural
+//    unique field (email, etc.) as a separate `@unique` constraint.
+//
+// 2. legacy_mongo_id: every table carries this nullable column, populated by the ETL scripts
+//    in Phase 3, so migrated rows can be traced back to their Mongo source during the
+//    transition window. Dropped once cutover is confirmed stable.
+//
+// 3. NO hard foreign-key constraint on any `empId` column that references Users/Admins.
+//    This is deliberate, not an oversight: the original Mongoose app never enforced this
+//    relationship at the database level either — every `empId` reference was validated in
+//    application code, and several real flows depend on that looseness surviving the move:
+//    historical asset/attendance/leave records must remain readable after an employee row is
+//    deleted, and the Excel importer's `unresolvedAssignments` intentionally allows a
+//    historical record to reference a name that doesn't (yet) resolve to a real employee.
+//    Every `empId` column is still indexed for query performance — just not FK-constrained.
+//    True parent-child relationships from array normalization (e.g. project managers belong
+//    to exactly one project, and are meaningless without it) DO get real FK constraints with
+//    onDelete: Cascade, since that mirrors exactly how deleting the parent Mongo document
+//    already deleted its embedded array.
+//
+// 4. Project.manager[].empId referenced `ref: 'Admin'` in the original Mongoose schema, but
+//    Admin has no empId field at all — that ref never resolved to anything in practice. Kept
+//    as a plain indexed string here rather than inventing a relationship the original data
+//    never actually had.
+//
+// 5. AssetComponentCheck is intentionally polymorphic: `phase` says which context a row
+//    belongs to (CURRENT / ASSIGN / RETURN / MAINTENANCE), and only the matching one of
+//    assignmentHistoryId / maintenanceHistoryId is set for non-CURRENT phases. This is the
+//    one place componentChecks appears in three different contexts in the original Asset
+//    model (Asset.componentChecks, assignmentRecordSchema's two fields, and
+//    maintenanceRecordSchema's field) collapsing into a single table.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================
+// CORE HR
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum WorkType {
+  WFO
+  WFH
+  Client_Location @map("Client Location")
+}
+
+model User {
+  empId         String    @id @map("emp_id")
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  email         String    @unique
+  currentEmpId  String    @unique @map("current_emp_id")
+  gender        Gender
+  role          String
+  worktype      WorkType
+  shift         String?
+  mobile        String    @unique
+  password      String
+  otp           String?   @map("otp")
+  otpExpiry     DateTime? @map("otp_expiry")
+  isVerified    Boolean   @default(false) @map("is_verified")
+  status        Boolean   @default(true)
+  closedDate    DateTime? @map("closed_date") @db.Date
+  dateOfJoining DateTime? @map("date_of_joining") @db.Date
+  employeeType  String?   @map("employee_type")
+  legacyMongoId String?   @unique @map("legacy_mongo_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Admin {
+  id                      Int      @id @default(autoincrement())
+  fullname                String
+  email                   String   @unique
+  password                String
+  role                    String?
+  confirmEmail            Boolean  @default(false) @map("confirm_email")
+  gender                  String?
+  mobile                  String?
+  education               String?
+  experience              String?
+  address                 String?  @db.Text
+  about                   String?  @db.Text
+  profileImage            Bytes?   @map("profile_image") @db.LongBlob
+  profileImageContentType String?  @map("profile_image_content_type")
+  linkedIn                String?  @map("linked_in")
+  country                 String?
+  legacyMongoId           String?  @unique @map("legacy_mongo_id")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Client {
+  id            Int      @id @default(autoincrement())
+  cid           String
+  name          String
+  companyName   String   @map("company_name")
+  date          DateTime @db.Date
+  email         String
+  mobile        String
+  billingMethod String   @map("billing_method")
+  status        Boolean?
+  address       String   @db.Text
+  legacyMongoId String?  @unique @map("legacy_mongo_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("clients")
+}
+
+// One row per photo — Image.images[] in the original model, keyed by email (not empId; the
+// upload endpoint never resolved email to an employee record).
+model EmployeePhoto {
+  id            Int      @id @default(autoincrement())
+  email         String
+  data          Bytes    @db.LongBlob
+  contentType   String   @map("content_type")
+  legacyMongoId String?  @unique @map("legacy_mongo_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("employee_photos")
+}
+
+// ============================================================
+// SESSIONS (JWT tracking — replaces EmpSection / Sections)
+// ============================================================
+
+model EmployeeSession {
+  id            Int      @id @default(autoincrement())
+  empId         String   @unique @map("emp_id")
+  jwtToken      String?  @map("jwt_token") @db.Text
+  legacyMongoId String?  @unique @map("legacy_mongo_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("employee_sessions")
+}
+
+model AdminSession {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  jwtToken      String?  @map("jwt_token") @db.Text
+  expiredDate   DateTime @map("expired_date")
+  legacyMongoId String?  @unique @map("legacy_mongo_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_sessions")
+}
+
+model FcmToken {
+  id            Int     @id @default(autoincrement())
+  empId         String  @unique @map("emp_id")
+  fcmToken      String  @map("fcm_token")
+  legacyMongoId String? @unique @map("legacy_mongo_id")
+
+  @@map("fcm_tokens")
+}
+
+// ============================================================
+// ONBOARDING PROFILE (userInfo.js)
+// ============================================================
+
+enum ProfileGender {
+  Male
+  Female
+  Other
+}
+
+enum WorkMode {
+  Remote
+  On_site        @map("On-site")
+  Hybrid
+  WFH
+  Work_From_Home @map("Work From Home")
+  WFO
+}
+
+enum EmploymentType {
+  Permanent
+  Contractual
+}
+
+enum MaritalStatus {
+  Married
+  Unmarried
+}
+
+enum YesNo {
+  Yes
+  No
+}
+
+enum LaptopType {
+  Personal
+  Official
+  Both
+}
+
+enum StorageType {
+  SSD
+  HDD
+}
+
+enum ProfileStatus {
+  Approve
+  Reject
+  Pending
+}
+
+model EmployeeProfile {
+  id                         Int            @id @default(autoincrement())
+  empId                      String         @unique @map("emp_id")
+  currentEmpId               String         @unique @map("current_emp_id")
+  firstName                  String         @map("first_name")
+  lastName                   String         @map("last_name")
+  dateOfJoining              DateTime       @map("date_of_joining") @db.Date
+  mobileNo                   String         @map("mobile_no")
+  email                      String?
+  designation                String
+  gender                     ProfileGender
+  workMode                   WorkMode       @map("work_mode")
+  employmentType             EmploymentType @map("employment_type")
+  dob                        DateTime       @map("dob") @db.Date
+  emergencyContactNo         String         @map("emergency_contact_no")
+  emergencyContactPersonName String         @map("emergency_contact_person_name")
+  currentCity                String         @map("current_city")
+  fathersName                String         @map("fathers_name")
+  maritalStatus              MaritalStatus  @map("marital_status")
+  spouseName                 String?        @map("spouse_name")
+  pfMember                   YesNo          @map("pf_member")
+  uanNo                      String         @map("uan_no")
+  bankAccountNo              String         @map("bank_account_no")
+  ifscCode                   String         @map("ifsc_code")
+  nameAsPerAadhar            String         @map("name_as_per_aadhar")
+  panNo                      String         @map("pan_no")
+  aadharNo                   String         @map("aadhar_no")
+  passportNo                 String?        @map("passport_no")
+  laptopType                 LaptopType     @map("laptop_type")
+  havingOfficialInUse        YesNo          @map("having_official_in_use")
+  officialLaptopSrNo         String?        @map("official_laptop_sr_no")
+  laptopPhoto                String?        @map("laptop_photo")
+  officialUpgrades           String?        @map("official_upgrades") @db.Text
+  ram                        String
+  storageType                StorageType    @map("storage_type")
+  storageSpace               String         @map("storage_space")
+  additionalConfigurations   String?        @map("additional_configurations") @db.Text
+  highestQualification       String         @map("highest_qualification")
+  additionalCourses          String?        @map("additional_courses") @db.Text
+  totalExp                   String         @map("total_exp")
+  status                     ProfileStatus
+  legacyMongoId              String?        @unique @map("legacy_mongo_id")
+  createdAt                  DateTime       @default(now()) @map("created_at")
+  updatedAt                  DateTime       @updatedAt @map("updated_at")
+
+  skills EmployeeSkill[]
+
+  @@map("employee_profiles")
+}
+
+model EmployeeSkill {
+  id                Int             @id @default(autoincrement())
+  employeeProfileId Int             @map("employee_profile_id")
+  skill             String
+  experience        String
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+
+  @@map("employee_skills")
+}
+
+model EmployeeDocument {
+  id                Int      @id @default(autoincrement())
+  empId             String   @unique @map("emp_id")
+  aadhaar           String
+  pan               String
+  hsc               String
+  ssc               String
+  passbook          String
+  domicile          String
+  passport          String?
+  experienceLetter  String?  @map("experience_letter")
+  offerLetter       String?  @map("offer_letter")
+  appointmentLetter String   @map("appointment_letter")
+  bond              String?
+  legacyMongoId     String?  @unique @map("legacy_mongo_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("employee_documents")
+}
+
+model WorkLocation {
+  id            Int     @id @default(autoincrement())
+  empId         String  @unique @map("emp_id")
+  imageUrl      String  @map("image_url")
+  latitude      String
+  longitude     String
+  legacyMongoId String? @unique @map("legacy_mongo_id")
+
+  @@map("work_locations")
+}
+
+// ============================================================
+// ATTENDANCE / LEAVE / TIMESHEET
+// Wrapper documents keyed by empId (Attendance, Leave, TimeSheet) are dropped entirely —
+// the emp_id column on each row below does that grouping natively.
+// ============================================================
+
+enum AttendanceStatus {
+  Present
+  Absent
+  Leave
+  Holiday
+}
+
+enum Shift {
+  Evening_Shift @map("Evening Shift")
+  Day_Shift     @map("Day Shift")
+  Night_Shift   @map("Night Shift")
+}
+
+model AttendanceRecord {
+  id            Int               @id @default(autoincrement())
+  empId         String            @map("emp_id")
+  inTime        DateTime?         @map("in_time")
+  outTime       DateTime?         @map("out_time")
+  date          DateTime          @db.Date
+  status        AttendanceStatus?
+  latitude      Float?
+  longitude     Float?
+  halfDay       Boolean           @default(false) @map("half_day")
+  shift         Shift
+  totalHours    Decimal?          @map("total_hours") @db.Decimal(5, 2)
+  legacyMongoId String?           @unique @map("legacy_mongo_id")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@index([empId])
+  @@index([empId, date])
+  @@map("attendance_records")
+}
+
+enum LeaveType {
+  Sick_Leave   @map("Sick Leave")
+  Casual_Leave @map("Casual Leave")
+  Paid_Leave   @map("Paid Leave")
+  Unpaid_Leave @map("Unpaid Leave")
+  Other
+}
+
+enum LeaveStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+}
+
+model LeaveRequest {
+  id            Int         @id @default(autoincrement())
+  empId         String      @map("emp_id")
+  startDate     DateTime    @map("start_date") @db.Date
+  endDate       DateTime    @map("end_date") @db.Date
+  type          LeaveType
+  reason        String?     @db.Text
+  numberOfDays  Int         @map("number_of_days")
+  status        LeaveStatus @default(Pending)
+  legacyMongoId String?     @unique @map("legacy_mongo_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([empId])
+  @@map("leave_requests")
+}
+
+model Timesheet {
+  id             Int      @id @default(autoincrement())
+  empId          String   @map("emp_id")
+  date           DateTime @db.Date
+  breakStartTime DateTime @map("break_start_time")
+  breakEndTime   DateTime @map("break_end_time")
+  hoursWorked    Decimal  @map("hours_worked") @db.Decimal(5, 2)
+  pendingTasks   String   @map("pending_tasks") @db.Text
+  completedTasks String   @map("completed_tasks") @db.Text
+  upcomingTasks  String?  @map("upcoming_tasks") @db.Text
+  legacyMongoId  String?  @unique @map("legacy_mongo_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  managers TimesheetManager[]
+
+  @@index([empId])
+  @@map("timesheets")
+}
+
+model TimesheetManager {
+  id           Int       @id @default(autoincrement())
+  timesheetId  Int       @map("timesheet_id")
+  managerEmail String    @map("manager_email")
+  timesheet    Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@map("timesheet_managers")
+}
+
+// ============================================================
+// PROJECTS
+// ============================================================
+
+enum ProjectPriority {
+  Low
+  Medium
+  High
+}
+
+enum WorkStatus {
+  Not_Started @map("Not Started")
+  In_Progress @map("In Progress")
+  Completed
+  On_Hold     @map("On Hold")
+  Cancelled
+}
+
+model Project {
+  id               Int             @id @default(autoincrement())
+  projectTitle     String          @map("project_title")
+  department       String
+  projectPriority  ProjectPriority @map("project_priority")
+  projectStartDate DateTime        @map("project_start_date") @db.Date
+  projectEndDate   DateTime?       @map("project_end_date") @db.Date
+  workStatus       WorkStatus      @map("work_status")
+  description      String          @db.Text
+  budget           Decimal         @default(0) @db.Decimal(12, 2)
+  clientFullName   String?         @map("client_full_name")
+  clientEmail      String?         @map("client_email")
+  clientPhone      String?         @map("client_phone")
+  clientAddress    String?         @map("client_address") @db.Text
+  isClientProject  Boolean?        @map("is_client_project")
+  legacyMongoId    String?         @unique @map("legacy_mongo_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  managers    ProjectManager[]
+  teamMembers ProjectTeamMember[]
+  documents   ProjectDocument[]
+
+  @@map("projects")
+}
+
+// empId here referenced ref: 'Admin' in the original schema, but Admin has no empId field —
+// that relationship never resolved in the original app either. Kept as a plain indexed string.
+model ProjectManager {
+  id        Int     @id @default(autoincrement())
+  projectId Int     @map("project_id")
+  empId     String  @map("emp_id")
+  role      String
+  name      String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([empId])
+  @@map("project_managers")
+}
+
+model ProjectTeamMember {
+  id        Int     @id @default(autoincrement())
+  projectId Int     @map("project_id")
+  empId     String  @map("emp_id")
+  role      String
+  name      String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([empId])
+  @@map("project_team_members")
+}
+
+model ProjectDocument {
+  id         Int      @id @default(autoincrement())
+  projectId  Int      @map("project_id")
+  name       String?
+  url        String?  @db.Text
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_documents")
+}
+
+// ============================================================
+// ASSET MANAGEMENT
+// ============================================================
+
+enum AssetCategory {
+  Laptop
+  Mobile
+  Keyboard
+  Mouse
+  Headphone
+  RAM
+  SSD
+  Monitor
+  Charger
+  Other
+}
+
+enum AssetStatus {
+  Available
+  Assigned
+  UnderMaintenance
+  Lost
+  Dead
+  Retired
+}
+
+enum AssetCondition {
+  New
+  Good
+  Fair
+  Damaged
+  Beyond_Repair @map("Beyond Repair")
+}
+
+enum LocationType {
+  Office
+  WFH
+  Warehouse
+}
+
+enum AssignmentStatus {
+  Active
+  Returned
+}
+
+enum MaintenanceStatus {
+  Pending
+  InProgress
+  Resolved
+}
+
+enum ComponentCheckPhase {
+  CURRENT
+  ASSIGN
+  RETURN
+  MAINTENANCE
+}
+
+model Asset {
+  assetId                String         @id @map("asset_id")
+  category               AssetCategory
+  brand                  String
+  modelName              String         @map("model_name")
+  serialNumber           String?        @unique @map("serial_number")
+  specifications         String?        @db.Text
+  purchaseDate           DateTime       @map("purchase_date") @db.Date
+  purchaseCost           Decimal?       @map("purchase_cost") @db.Decimal(10, 2)
+  vendor                 String?
+  warrantyExpiryDate     DateTime?      @map("warranty_expiry_date") @db.Date
+  condition              AssetCondition @default(New)
+  status                 AssetStatus    @default(Available)
+  currentAssigneeEmpId   String?        @map("current_assignee_emp_id")
+  currentAssigneeEmpName String?        @map("current_assignee_emp_name")
+  currentAssigneeSince   DateTime?      @map("current_assignee_since")
+  locationType           LocationType   @default(Warehouse) @map("location_type")
+  currentLocation        String?        @map("current_location")
+  notes                  String?        @db.Text
+  legacyMongoId          String?        @unique @map("legacy_mongo_id")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+
+  assignmentHistory  AssetAssignmentHistory[]
+  maintenanceHistory AssetMaintenanceHistory[]
+  documents          AssetDocument[]
+  componentChecks    AssetComponentCheck[]
+
+  @@index([currentAssigneeEmpId])
+  @@map("assets")
+}
+
+model AssetAssignmentHistory {
+  id                Int              @id @default(autoincrement())
+  assetId           String           @map("asset_id")
+  empId             String           @map("emp_id")
+  empName           String           @map("emp_name")
+  assignedDate      DateTime         @map("assigned_date")
+  returnDate        DateTime?        @map("return_date")
+  conditionAtAssign AssetCondition   @map("condition_at_assign")
+  conditionAtReturn AssetCondition?  @map("condition_at_return")
+  courierName       String?          @map("courier_name")
+  trackingNumber    String?          @map("tracking_number")
+  shippedToAddress  String?          @map("shipped_to_address") @db.Text
+  remarks           String?          @db.Text
+  assignedBy        String           @map("assigned_by")
+  status            AssignmentStatus @default(Active)
+  legacyMongoId     String?          @unique @map("legacy_mongo_id")
+
+  asset           Asset                 @relation(fields: [assetId], references: [assetId], onDelete: Cascade)
+  componentChecks AssetComponentCheck[]
+
+  @@index([empId])
+  @@index([assetId])
+  @@map("asset_assignment_history")
+}
+
+model AssetMaintenanceHistory {
+  id            Int               @id @default(autoincrement())
+  assetId       String            @map("asset_id")
+  issueReported String            @map("issue_reported") @db.Text
+  reportedDate  DateTime          @map("reported_date")
+  resolvedDate  DateTime?         @map("resolved_date")
+  vendor        String?
+  cost          Decimal?          @db.Decimal(10, 2)
+  status        MaintenanceStatus @default(Pending)
+  remarks       String?           @db.Text
+  legacyMongoId String?           @unique @map("legacy_mongo_id")
+
+  asset           Asset                 @relation(fields: [assetId], references: [assetId], onDelete: Cascade)
+  componentChecks AssetComponentCheck[]
+
+  @@index([assetId])
+  @@map("asset_maintenance_history")
+}
+
+// Polymorphic by design — see file header. `phase` says which of the three optional parent
+// references is meaningful for a given row; CURRENT rows have neither history FK set.
+model AssetComponentCheck {
+  id                   Int                 @id @default(autoincrement())
+  assetId              String              @map("asset_id")
+  phase                ComponentCheckPhase
+  assignmentHistoryId  Int?                @map("assignment_history_id")
+  maintenanceHistoryId Int?                @map("maintenance_history_id")
+  component            String
+  status               String
+
+  asset              Asset                    @relation(fields: [assetId], references: [assetId], onDelete: Cascade)
+  assignmentHistory  AssetAssignmentHistory?  @relation(fields: [assignmentHistoryId], references: [id], onDelete: Cascade)
+  maintenanceHistory AssetMaintenanceHistory? @relation(fields: [maintenanceHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([assignmentHistoryId])
+  @@index([maintenanceHistoryId])
+  @@map("asset_component_checks")
+}
+
+model AssetDocument {
+  id         Int      @id @default(autoincrement())
+  assetId    String   @map("asset_id")
+  name       String
+  url        String   @db.Text
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  asset Asset @relation(fields: [assetId], references: [assetId], onDelete: Cascade)
+
+  @@map("asset_documents")
+}

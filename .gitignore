@@ -40,6 +40,10 @@ node_modules/
 package-lock.json
 npm-debug.log
 yarn-error.log
+.env
+asset/uploads/
+private.key
+config/firebase-admin.json
 
 # fastlane
 #
@@ -73,3 +77,11 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+/generated/prisma
+
+# Prisma-generated assistant-tooling scaffold (unrelated to this project)
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

@@ -1,16 +1,13 @@
-var app = require('../server');
-const connect = require('../config/db')
 require('dotenv').config()
+var app = require('../server');
 
 const PORT = process.env.PORT ;
 
 
 try {
-    connect()
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
     console.log(error);
 }
-  

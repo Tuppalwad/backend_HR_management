@@ -44,6 +44,7 @@ yarn-error.log
 asset/uploads/
 private.key
 config/firebase-admin.json
+docker-compose.yml
 
 # fastlane
 #

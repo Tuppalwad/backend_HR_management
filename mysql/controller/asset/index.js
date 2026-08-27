@@ -2,18 +2,13 @@ const prisma = require('../../utils/prismaClient');
 const { toPrismaEnum, fromPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
 const { assetInclude, toAssetResponse, toAssignmentResponse } = require('../../utils/assetResponse');
+const { generateAssetId } = require('../../utils/assetId');
 const { sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
 const { sendEmail } = require('../../../utils/emailService');
 const { sendPushNotification } = require('../notification');
 const assetAssignHtml = require('../../../asset/utils/htmlText/assetAssignHtml');
 const assetReturnHtml = require('../../../asset/utils/htmlText/assetReturnHtml');
 const { ASSET_CATEGORIES, ASSET_STATUS, CONDITIONS } = require('../../../asset/constant/assetEnums');
-
-// Generate a unique asset ID based on category
-const generateAssetId = (category) => {
-    const prefix = category.substring(0, 3).toUpperCase();
-    return `AST-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
-};
 
 // Convenience shorthand for the componentChecks array, matching the named fields (RAM, HDD, etc.) from the HR excel register
 const buildComponentChecksFromFields = ({ ram, hdd, ssd, keyboard, mouse, battery, processor, generation }) => {
@@ -82,7 +77,7 @@ exports.addAsset = async (req, res) => {
             }
         }
 
-        const assetId = generateAssetId(category);
+        const assetId = await generateAssetId(category);
         const checks = componentChecks || buildComponentChecksFromFields(req.body);
 
         await prisma.asset.create({

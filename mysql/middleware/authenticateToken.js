@@ -29,7 +29,12 @@ const authenticateToken = async (req, res, next) => {
         } else if (email) {
             const sectionCheck = await prisma.adminSession.findFirst({ where: { email, jwtToken: token } });
             if (!sectionCheck) {
-                return sendErrorResponse(res, 301, "User not found");
+                // 401, not 301. This is a GET-able auth check, and 301 "Moved Permanently" is
+                // cached by browsers indefinitely — once a logged-out user hit /api/@me the
+                // browser kept replaying that cached 301 without ever contacting the server
+                // again, so a valid token could never authenticate afterwards. Confirmed:
+                // requests with no Authorization header at all still returned 301 from cache.
+                return sendErrorResponse(res, 401, "Unauthorized");
             }
 
             // Check if the section has expired

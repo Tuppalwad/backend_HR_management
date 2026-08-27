@@ -2,13 +2,8 @@ const XLSX = require('xlsx');
 const prisma = require('../../utils/prismaClient');
 const { toPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
+const { generateAssetId } = require('../../utils/assetId');
 const { sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
-
-// Generate a unique asset ID based on category
-const generateAssetId = (category) => {
-    const prefix = category.substring(0, 3).toUpperCase();
-    return `AST-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
-};
 
 // Column positions in the "Laptop IN -OUT Register" sheet: Date, New SR No., SR No. / Code, Model, status, (blank), From, Contact No., Remarks, RAM, HDD, SSD, Keyboard, Mouse, Battery, Processor, Generation
 const COMPONENT_COLUMNS = [
@@ -96,6 +91,12 @@ exports.importAssetsFromExcel = async (req, res) => {
                 return;
             }
 
+            const date = row[0] instanceof Date ? row[0] : new Date(row[0]);
+            if (isNaN(date.getTime())) {
+                skippedRows.push({ row: index + 2, reason: `Unrecognized date value "${row[0]}"` });
+                return;
+            }
+
             const key = serial.toLowerCase();
             if (!groups.has(key)) {
                 groups.set(key, { serial, legacyTags: new Set(), rows: [] });
@@ -104,7 +105,7 @@ exports.importAssetsFromExcel = async (req, res) => {
             const group = groups.get(key);
             if (row[1]) group.legacyTags.add(row[1].toString().trim());
             group.rows.push({
-                date: row[0] instanceof Date ? row[0] : new Date(row[0]),
+                date,
                 action,
                 model: row[3] ? row[3].toString().trim() : null,
                 from: row[6] ? row[6].toString().trim() : null,
@@ -116,8 +117,10 @@ exports.importAssetsFromExcel = async (req, res) => {
         let created = 0;
         let skippedExisting = 0;
         const unresolvedAssignments = [];
+        const failedImports = [];
 
         for (const group of groups.values()) {
+          try {
             const existing = await prisma.asset.findUnique({ where: { serialNumber: group.serial } });
             if (existing) {
                 skippedExisting += 1;
@@ -180,7 +183,7 @@ exports.importAssetsFromExcel = async (req, res) => {
 
             const status = openAssignment ? 'Assigned' : (openMaintenance ? 'UnderMaintenance' : 'Available');
             const currentChecks = buildComponentChecks(group.rows[group.rows.length - 1].raw);
-            const newAssetId = generateAssetId('Laptop');
+            const newAssetId = await generateAssetId('Laptop');
 
             await prisma.asset.create({
                 data: {
@@ -241,6 +244,10 @@ exports.importAssetsFromExcel = async (req, res) => {
             });
 
             created += 1;
+          } catch (groupError) {
+            console.log(`Import failed for serial "${group.serial}":`, groupError);
+            failedImports.push({ serial: group.serial, reason: groupError.message || 'Something went wrong' });
+          }
         }
 
         return sendSuccessResponse(res, 200, 'Excel import completed', {
@@ -248,6 +255,7 @@ exports.importAssetsFromExcel = async (req, res) => {
             created,
             skippedExisting,
             skippedRows,
+            failedImports,
             unresolvedAssignments
         });
 

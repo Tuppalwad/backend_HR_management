@@ -44,6 +44,11 @@ generator client {
   output   = "../generated/prisma"
 }
 
+// No `url` here: Prisma 7 rejects it in schema files (P1012) — the connection URL lives in
+// prisma.config.ts. A consequence worth knowing: prisma.config.ts imports "prisma/config",
+// which only exists while the full CLI package is installed, and the production image strips
+// that (see dockerfile). Migrations therefore cannot be run from inside the runtime image —
+// use the builder stage or a full checkout. See DEPLOYMENT.md, step 5.
 datasource db {
   provider = "mysql"
 }
@@ -172,10 +177,14 @@ model AdminSession {
   @@map("admin_sessions")
 }
 
+// fcmToken is @db.Text, not the default VARCHAR(191). FCM registration tokens commonly run
+// 150-200+ characters and Firebase documents no fixed maximum, so 191 sits right on the boundary.
+// MySQL 8's default strict mode rejects an over-length value outright ("Data too long for column")
+// rather than truncating, so this would fail for real devices while passing with short test values.
 model FcmToken {
   id            Int     @id @default(autoincrement())
   empId         String  @unique @map("emp_id")
-  fcmToken      String  @map("fcm_token")
+  fcmToken      String  @map("fcm_token") @db.Text
   legacyMongoId String? @unique @map("legacy_mongo_id")
 
   @@map("fcm_tokens")

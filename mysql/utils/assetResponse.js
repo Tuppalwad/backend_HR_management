@@ -68,6 +68,10 @@ const toAssetResponse = (asset) => {
 
     return {
         ...rest,
+        // Frontend AG Grid tables key rows by `_id` (a holdover from raw Mongo documents,
+        // same reasoning as project/index.js's top-level `_id`). Asset has no separate
+        // autoincrement id to alias — assetId is the real, already-unique primary key.
+        _id: asset.assetId,
         condition: fromPrismaEnum('condition', condition),
         purchaseCost: num(purchaseCost),
         currentAssignee: currentAssigneeEmpId

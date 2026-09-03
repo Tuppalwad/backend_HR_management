@@ -82,7 +82,4 @@ docker-compose.yml
 /generated/prisma
 
 # Prisma-generated assistant-tooling scaffold (unrelated to this project)
-.agents/
-.claude/
-.windsurf/
 skills-lock.json

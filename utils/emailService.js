@@ -52,8 +52,6 @@ const sendEmail = async (to, subject, htmlContent) => {
         console.log('[emailService] sent:', info.messageId, '->', mailOptions.to);
         return true;
     } catch (error) {
-        // Previously this logged "Email sent successfully" whether or not anything was sent,
-        // which hid real delivery failures. Report the actual outcome.
         console.error('[emailService] FAILED to send to', mailOptions.to, '-', error.message);
         return false;
     }

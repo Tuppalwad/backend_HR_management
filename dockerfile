@@ -7,10 +7,8 @@ WORKDIR /app
 
 COPY package.json yarn.lock ./
 
-# Full install (incl. devDependencies) — the `prisma` CLI is needed for `prisma generate`.
-# The cache mount lives on the BUILD HOST, not in the image: rebuilds reuse the downloaded
-# tarballs (fast) while the ~500MB cache never becomes a layer. This is why no `yarn cache
-# clean` is needed here — there is nothing baked in to clean.
+# Full install — the `prisma` CLI is needed for `prisma generate` below.
+# The cache mount lives on the build host, so the ~500MB yarn cache never becomes an image layer.
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn,sharing=locked \
     yarn install
 
@@ -29,18 +27,10 @@ WORKDIR /app
 
 COPY package.json yarn.lock ./
 
-# --production drops `nodemon`. The yarn cache is a build-host cache mount rather than a layer,
-# so the ~500MB of tarballs never enters the image and rebuilds stay fast. The prune below must
-# happen in THIS layer — a later `rm` cannot shrink an earlier one.
-#
-# The `prisma` CLI survives --production regardless of it being a devDependency, because
-# @prisma/client declares it as a peerDependency ("prisma": "*"). It drags in the whole
-# developer toolchain, none of which the running server loads: the app requires only
-# ./generated/prisma, @prisma/client (-> @prisma/client-runtime-utils) and
-# @prisma/adapter-mariadb (-> mariadb, @prisma/driver-adapter-utils). Everything removed below
-# is reachable only from the CLI, Studio's React/D3 UI, or the pglite dev server (Postgres
-# compiled to WASM — for a MySQL-only app). Migrations are run from the builder stage or the
-# deploy host, never from this image.
+# `prisma` survives --production as a peerDependency of @prisma/client and drags in Studio,
+# pglite and the rest of the CLI toolchain; the server only needs the generated client and the
+# mariadb adapter. Prune in THIS layer — a later `rm` cannot shrink an earlier one.
+# Consequence: migrations cannot run from this image. See DEPLOYMENT.md, step 5.
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn,sharing=locked \
     yarn install --production \
     && cd node_modules \

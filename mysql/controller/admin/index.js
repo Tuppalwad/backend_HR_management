@@ -1,6 +1,7 @@
 const prisma = require('../../utils/prismaClient');
 const { genbcryptPass, genJWTToken, validatePass, sendErrorResponse, sendSuccessResponse, verifyJWTToken } = require('../../../utils/common');
 const { sendEmail } = require('../../../utils/emailService');
+const sendVerificationEmail = require('../../../utils/htmlText/sendVerificationText');
 
 exports.addadmin = async (req, res) => {
 
@@ -40,6 +41,9 @@ exports.addadmin = async (req, res) => {
                 confirmEmail: false
             }
         });
+
+        const { subject, html } = await sendVerificationEmail(email);
+        await sendEmail([email], subject, html);
 
         return sendSuccessResponse(res, 200, 'User created successfully');
     } catch (error) {

@@ -19,7 +19,7 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 // short enough that a slow SMTP handshake (common from cloud VMs, where outbound 587 is often
 // throttled or filtered) surfaces as a connection error that looks like an auth failure.
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'us2.smtp.mailhostbox.com',
     port: 587,
     secure: false,
     auth: {

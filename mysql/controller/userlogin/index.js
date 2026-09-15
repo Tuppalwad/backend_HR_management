@@ -6,16 +6,22 @@ const sendOtpHtml = require('../../../utils/htmlText/sendOtpHtml');
 
 exports.userLogin = async (req, res) => {
     try {
-        const { empId, password } = req.body;
+        const { empId: loginId, password } = req.body;
 
-        if (!empId || !password) {
+        if (!loginId || !password) {
             return sendErrorResponse(res, 400, "All fields are required");
         }
 
-        const userexit = await prisma.user.findUnique({ where: { empId } });
+        const userexit = await prisma.user.findFirst({
+            where: { OR: [{ empId: loginId }, { currentEmpId: loginId }] }
+        });
 
         if (!userexit) {
             return sendErrorResponse(res, 400, "Please provide correct empId and password");
+        }
+
+        if (!userexit.status) {
+            return sendErrorResponse(res, 403, "Your account is inactive. Please contact admin.");
         }
 
         const validate = await validatePass(password, userexit.password);
@@ -23,6 +29,8 @@ exports.userLogin = async (req, res) => {
         if (!validate) {
             return sendErrorResponse(res, 400, "Invalid Password");
         }
+
+        const empId = userexit.empId;
 
         // Original Mongo controller signed the token with userexit.fullName, a field that
         // doesn't exist on the User schema (firstName/lastName do) — pre-existing bug, not

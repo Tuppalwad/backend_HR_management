@@ -97,7 +97,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
                 where: { empId },
                 data: {
                     ...data,
-                    skills: { create: (skillAndExperience || []).map(s => ({ skill: s.skill, experience: s.experience })) }
+                    skills: { create: (skillAndExperience || []).map(s => ({ skill: s.skill, experience: String(s.experience) })) }
                 },
                 include: { skills: true }
             });
@@ -109,7 +109,7 @@ exports.setOrUpdateUserInfo = async (req, res) => {
                     empId,
                     ...data,
                     status: 'Pending',
-                    skills: { create: (skillAndExperience || []).map(s => ({ skill: s.skill, experience: s.experience })) }
+                    skills: { create: (skillAndExperience || []).map(s => ({ skill: s.skill, experience: String(s.experience) })) }
                 },
                 include: { skills: true }
             });

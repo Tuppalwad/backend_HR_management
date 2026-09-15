@@ -12,7 +12,7 @@ const empHTMLText = async (fullName, empId, mobile) => {
             </ul>
             <p style="color: #d9534f;"><strong>Note:</strong> Please change your password after your first login for security purposes.</p>
             <p>If you have any questions, feel free to reach out to our support team.</p>
-            <p>Best regards,<br />Your Company Name</p>
+            <p>Best regards,<br />Mindnerves Team</p>
         </div>
     `;
 

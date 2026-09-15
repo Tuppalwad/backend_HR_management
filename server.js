@@ -28,6 +28,7 @@ const mysqlAssetMaintenanceRoutes = require('./mysql/routes/assetMaintenanceRout
 const mysqlAssetDashboardRoutes = require('./mysql/routes/assetDashboardRoutes');
 const mysqlAssetImportRoutes = require('./mysql/routes/assetImportRoutes');
 const mysqlAssetDocumentRoutes = require('./mysql/routes/assetDocumentRoutes');
+const mysqlEmployeeDocumentRoutes = require('./mysql/routes/employeeDocumentRoutes');
 const mysqlAuthenticateToken = require('./mysql/middleware/authenticateToken');
 
 const { updateAttendanceForAbsentUsers } = require('./mysql/controller/attendance');
@@ -70,7 +71,9 @@ app.use('/api/asset/maintenance', mysqlAuthenticateToken, mysqlAssetMaintenanceR
 app.use('/api/asset/dashboard', mysqlAuthenticateToken, mysqlAssetDashboardRoutes);
 app.use('/api/asset/import', mysqlAuthenticateToken, mysqlAssetImportRoutes);
 app.use('/api/asset/documents', mysqlAuthenticateToken, mysqlAssetDocumentRoutes);
+app.use('/api/employee-documents', mysqlAuthenticateToken, mysqlEmployeeDocumentRoutes);
 app.use('/asset-uploads', express.static(path.join(__dirname, 'asset', 'uploads', 'documents')));
+app.use('/emp-documents', express.static(path.join(__dirname, 'uploads', 'employee-documents')));
 
 app.get('/api/@me', mysqlAuthenticateToken, (req, res) => {
     return sendSuccessResponse(res, 200, "authorize user")

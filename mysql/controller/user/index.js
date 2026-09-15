@@ -69,7 +69,8 @@ exports.addUser = async (req, res) => {
         });
 
         // Matches the original: the welcome email is composed but not sent on add, only on edit
-        await empHTMLText(`${firstName} ${lastName}`, empId, mobileStr);
+        const { subject, html } = await empHTMLText(`${firstName} ${lastName}`, empId, mobile)
+        await sendEmail([email], subject, html)
 
         return sendSuccessResponse(res, 201, 'User added successfully', { empId });
 

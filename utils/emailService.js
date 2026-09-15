@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
 
 // Fail loudly at startup rather than at the first password reset. Credentials arrive from .env
 // locally and from the `environment:` block in docker-compose.yml in production, so a missing
@@ -19,7 +20,7 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 // short enough that a slow SMTP handshake (common from cloud VMs, where outbound 587 is often
 // throttled or filtered) surfaces as a connection error that looks like an auth failure.
 const transporter = nodemailer.createTransport({
-    host: 'us2.smtp.mailhostbox.com',
+    host: EMAIL_HOST,
     port: 587,
     secure: false,
     auth: {

@@ -301,23 +301,24 @@ model EmployeeSkill {
   @@map("employee_skills")
 }
 
+// One row per employee, one nullable URL column per required/optional onboarding document —
+// mirrors the "IMP" vs optional checklist from the onboarding requirements doc. Columns stay
+// nullable even for the required ones because documents are uploaded one at a time as the user
+// fills the checklist; "required" is enforced client-side (and can be re-checked at whatever
+// point onboarding is considered complete), not by a NOT NULL constraint.
 model EmployeeDocument {
-  id                Int      @id @default(autoincrement())
-  empId             String   @unique @map("emp_id")
-  aadhaar           String
-  pan               String
-  hsc               String
-  ssc               String
-  passbook          String
-  domicile          String
-  passport          String?
-  experienceLetter  String?  @map("experience_letter")
-  offerLetter       String?  @map("offer_letter")
-  appointmentLetter String   @map("appointment_letter")
-  bond              String?
-  legacyMongoId     String?  @unique @map("legacy_mongo_id")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                      Int      @id @default(autoincrement())
+  empId                   String   @unique @map("emp_id")
+  photoUrl                String?  @map("photo_url")
+  qualificationMarksheetUrl String? @map("qualification_marksheet_url")
+  aadharUrl               String?  @map("aadhar_url")
+  panUrl                  String?  @map("pan_url")
+  offerRelievingLetterUrl String?  @map("offer_relieving_letter_url")
+  passportUrl             String?  @map("passport_url")
+  passbookUrl             String?  @map("passbook_url")
+  formA9Url               String?  @map("form_a9_url")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@map("employee_documents")
 }

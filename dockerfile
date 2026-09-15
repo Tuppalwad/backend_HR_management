@@ -50,14 +50,17 @@ ENV NODE_ENV=production
 
 # User is created before any COPY so ownership can be set inline. A `chown -R` afterwards
 # would rewrite every file into a second copy of the whole tree, roughly doubling the image.
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# su-exec lets the entrypoint start as root (to fix volume ownership) and then drop to appuser.
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && apk add --no-cache su-exec
 
 COPY --chown=appuser:appgroup --from=deps /app/node_modules ./node_modules
 COPY --chown=appuser:appgroup --from=builder /app/generated ./generated
 COPY --chown=appuser:appgroup . .
-
-USER appuser
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3030
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "/app/bin/www"]

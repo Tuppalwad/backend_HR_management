@@ -21,20 +21,12 @@ exports.addUser = async (req, res) => {
 
         const mobileStr = mobile.toString();
 
-        const [checkEmail, checkEmailInAdmin, checkMobile, checkMobileInAdmin, checkCurrentEmpId] = await Promise.all([
+        const [checkEmail, checkMobile, checkCurrentEmpId] = await Promise.all([
             prisma.user.findUnique({ where: { email } }),
-            prisma.admin.findUnique({ where: { email } }),
             prisma.user.findUnique({ where: { mobile: mobileStr } }),
-            prisma.admin.findFirst({ where: { mobile: mobileStr } }),
             prisma.user.findUnique({ where: { currentEmpId } })
         ]);
 
-        if (checkEmailInAdmin) {
-            return sendErrorResponse(res, 401, "An account with this email already exists");
-        }
-        if (checkMobileInAdmin) {
-            return sendErrorResponse(res, 401, "An account with this mobile number already exists");
-        }
         if (checkEmail) {
             return sendErrorResponse(res, 401, "An account with this email already exists");
         }

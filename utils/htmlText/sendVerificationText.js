@@ -1,5 +1,6 @@
 const sendVerificationEmail = async (email) => {
-    const link = `http://164.52.218.7:9999/verifyemail/${email}`;
+    const HRMS_FRONTEND_URL = process.env.HRMS_FRONTEND_URL || "http://localhost:3030/";    
+    const link = `${HRMS_FRONTEND_URL}verifyemail/${email}`;
     const subject = "Account Created Successfully";
     const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">

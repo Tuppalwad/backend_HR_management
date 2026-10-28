@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+private.key
+config/firebase-admin.json
+asset/uploads
+generated/prisma
+npm-debug.log
+yarn-error.log

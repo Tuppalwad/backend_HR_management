@@ -1,6 +1,7 @@
 const prisma = require('../../utils/prismaClient');
 const { toPrismaEnum, fromPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
+const { recordHrActivity } = require('../../utils/hrActivity');
 const { sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
 const { sendEmail } = require('../../../utils/emailService');
 const leaveHtmlText = require('../../../utils/htmlText/leaveHtmlText');
@@ -102,6 +103,9 @@ exports.LeaveStatus = async (req, res) => {
         sendPushNotification(empId, "Leave request Status", body);
 
         const updated = await prisma.leaveRequest.update({ where: { id: leave.id }, data: { status } });
+        if (status === 'Approved') {
+            await recordHrActivity(req, 'APPROVE_LEAVE');
+        }
 
         return sendSuccessResponse(res, 200, "Leave request approved successfully", { ...updated, type: leaveType });
 

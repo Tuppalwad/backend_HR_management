@@ -3,6 +3,7 @@ const prisma = require('../../utils/prismaClient');
 const { toPrismaEnum, fromPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
 const { num } = require('../../utils/serialize');
+const { recordHrActivity } = require('../../utils/hrActivity');
 const { sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
 const { addressLat, addressLng, radius } = require('../../../constant/latitudeLongitude');
 const HOLIDAY_LIST = process.env.HOLIDAY_LIST.split(',');
@@ -152,6 +153,10 @@ exports.setuserAttendance = async (req, res) => {
                     totalHours: hoursDifference
                 }
             });
+        }
+
+        if (inTime || outTime) {
+            await recordHrActivity(req, 'MANAGE_ATTENDANCE');
         }
 
         return sendSuccessResponse(res, 200, "Attendance updated successfully", toRecordResponse(record));

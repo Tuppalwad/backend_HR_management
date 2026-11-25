@@ -3,6 +3,7 @@ const { toPrismaEnum, fromPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
 const { assetInclude, toAssetResponse, toAssignmentResponse } = require('../../utils/assetResponse');
 const { generateAssetId } = require('../../utils/assetId');
+const { recordHrActivity } = require('../../utils/hrActivity');
 const { sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
 const { sendEmail } = require('../../../utils/emailService');
 const { sendPushNotification } = require('../notification');
@@ -419,6 +420,7 @@ exports.assignAsset = async (req, res) => {
             await sendEmail([employee.email], subject, html);
         }
         sendPushNotification(empId, "Asset Assigned", `${updated.category} (${updated.assetId}) has been assigned to you`);
+        await recordHrActivity(req, 'ASSIGN_ASSET');
 
         return sendSuccessResponse(res, 200, 'Asset assigned successfully', toAssetResponse(updated));
 

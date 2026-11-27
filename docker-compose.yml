@@ -1,0 +1,28 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mnt2013
+    volumes:
+      - mongodb_data:/data/db
+
+  backend:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: hrms-backend
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+        MONGO_URI: mongodb://admin:mnt2013@mongodb:27017/hrms?authSource=admin
+    ports:
+      - "3030:3030"
+
+volumes:
+  mongodb_data:

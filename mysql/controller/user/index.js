@@ -1,6 +1,7 @@
 const prisma = require('../../utils/prismaClient');
 const { toPrismaEnum, fromPrismaEnum } = require('../../utils/enumMap');
 const { toDate } = require('../../utils/dateHelper');
+const { recordHrActivity } = require('../../utils/hrActivity');
 const { genbcryptPass, sendErrorResponse, sendSuccessResponse } = require('../../../utils/common');
 const { sendEmail } = require('../../../utils/emailService');
 const empHTMLText = require('../../../utils/htmlText/empHtmlText');
@@ -63,6 +64,7 @@ exports.addUser = async (req, res) => {
         // Matches the original: the welcome email is composed but not sent on add, only on edit
         const { subject, html } = await empHTMLText(`${firstName} ${lastName}`, empId, mobile)
         await sendEmail([email], subject, html)
+        await recordHrActivity(req, 'ADD_EMPLOYEE');
 
         return sendSuccessResponse(res, 201, 'User added successfully', { empId });
 
@@ -105,6 +107,7 @@ exports.editUser = async (req, res) => {
 
         const { subject, text } = await empHTMLText(`${firstName || user.firstName} ${lastName || user.lastName}`, empId, mobileStr || user.mobile);
         await sendEmail(updated.email, subject, text);
+        await recordHrActivity(req, 'UPDATE_EMPLOYEE');
 
         return sendSuccessResponse(res, 200, 'User updated successfully');
     } catch (error) {

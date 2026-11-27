@@ -406,6 +406,18 @@ model LeaveRequest {
   @@map("leave_requests")
 }
 
+model HrActivity {
+  id           Int      @id @default(autoincrement())
+  actorEmail   String   @map("actor_email") @db.VarChar(191)
+  activityType String   @map("activity_type") @db.VarChar(50)
+  activityDate DateTime @map("activity_date") @db.Date
+  completedAt  DateTime @default(now()) @map("completed_at") @db.DateTime(3)
+
+  @@unique([actorEmail, activityDate, activityType], map: "hr_activities_actor_email_activity_date_activity_type_key")
+  @@index([actorEmail, activityDate], map: "hr_activities_actor_email_activity_date_idx")
+  @@map("hr_activities")
+}
+
 model Timesheet {
   id             Int      @id @default(autoincrement())
   empId          String   @map("emp_id")

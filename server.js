@@ -29,6 +29,7 @@ const mysqlAssetDashboardRoutes = require('./mysql/routes/assetDashboardRoutes')
 const mysqlAssetImportRoutes = require('./mysql/routes/assetImportRoutes');
 const mysqlAssetDocumentRoutes = require('./mysql/routes/assetDocumentRoutes');
 const mysqlEmployeeDocumentRoutes = require('./mysql/routes/employeeDocumentRoutes');
+const mysqlHrActivityRoutes = require('./mysql/routes/hrActivityRoutes');
 const mysqlAuthenticateToken = require('./mysql/middleware/authenticateToken');
 
 const { updateAttendanceForAbsentUsers } = require('./mysql/controller/attendance');
@@ -72,6 +73,7 @@ app.use('/api/asset/dashboard', mysqlAuthenticateToken, mysqlAssetDashboardRoute
 app.use('/api/asset/import', mysqlAuthenticateToken, mysqlAssetImportRoutes);
 app.use('/api/asset/documents', mysqlAuthenticateToken, mysqlAssetDocumentRoutes);
 app.use('/api/employee-documents', mysqlAuthenticateToken, mysqlEmployeeDocumentRoutes);
+app.use('/api', mysqlAuthenticateToken, mysqlHrActivityRoutes);
 app.use('/asset-uploads', express.static(path.join(__dirname, 'asset', 'uploads', 'documents')));
 app.use('/emp-documents', express.static(path.join(__dirname, 'uploads', 'employee-documents')));
 

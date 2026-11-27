@@ -35,12 +35,7 @@ exports.getAttendanceData = async (req, res) => {
     try {
         const records = await prisma.attendanceRecord.findMany({ orderBy: { date: 'asc' } });
 
-        if (!records.length) {
-            return res.status(404).json({ message: "No attendance records found." });
-        }
-
-        // "DayRwo" is a typo for DayTwo in the original. Preserved exactly — it's a response key
-        // the dashboard reads, so correcting the spelling here would break the caller.
+        // The dashboard expects these six day keys, including DayTwo.
         //
         // The original also seeded DayFour with `presentCount: 4` — a hardcoded non-zero starting
         // value with no basis in the data, which inflated that bucket by 4 on every single call.
@@ -48,7 +43,7 @@ exports.getAttendanceData = async (req, res) => {
         // bucket. This is the one place in this sub-phase where a response *value* changes.
         const data = {
             DayOne: { absentCount: 0, presentCount: 0 },
-            DayRwo: { absentCount: 0, presentCount: 0 },
+            DayTwo: { absentCount: 0, presentCount: 0 },
             DayThree: { absentCount: 0, presentCount: 0 },
             DayFour: { absentCount: 0, presentCount: 0 },
             DayFive: { absentCount: 0, presentCount: 0 },
@@ -91,11 +86,6 @@ exports.getProjectStatusData = async (req, res) => {
             by: ['workStatus'],
             _count: { _all: true }
         });
-
-        const total = grouped.reduce((sum, row) => sum + row._count._all, 0);
-        if (total === 0) {
-            return res.status(404).json({ message: "No projects found." });
-        }
 
         const statusData = [
             { status: "Not Started", count: 0 },
